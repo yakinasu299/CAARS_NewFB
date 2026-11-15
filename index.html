@@ -107,7 +107,7 @@
       box-shadow: 0 0 0 3px var(--accent-glow);
     }
     #input-area   { min-height: 220px; }
-    #findings-area { min-height: 380px; }
+    #findings-area-1, #findings-area-2 { min-height: 240px; }
     .btn-row {
       display: flex;
       gap: 12px;
@@ -188,12 +188,22 @@ H ADHD指数　　　　　（t=66）平均をかなり上回る"></textarea>
   </div>
 
   <div class="card" id="findings-section" style="display:none">
-    <div class="card-label">📝 所見（編集可能）</div>
+    <div class="card-label">📝 所見・前半（編集可能）</div>
     <hr class="section-divider">
-    <textarea id="findings-area"></textarea>
+    <textarea id="findings-area-1"></textarea>
     <div class="btn-row">
-      <button class="btn-copy" onclick="copyFindings()"><span>📄</span> テキストをコピー</button>
-      <span class="copy-feedback" id="copy-feedback">✓ コピーしました</span>
+      <button class="btn-copy" onclick="copyFindings(1)"><span>📄</span> 前半をコピー</button>
+      <span class="copy-feedback" id="copy-feedback-1">✓ コピーしました</span>
+    </div>
+  </div>
+
+  <div class="card" id="findings-section-2" style="display:none">
+    <div class="card-label">📝 所見・後半（編集可能）</div>
+    <hr class="section-divider">
+    <textarea id="findings-area-2"></textarea>
+    <div class="btn-row">
+      <button class="btn-copy" onclick="copyFindings(2)"><span>📄</span> 後半をコピー</button>
+      <span class="copy-feedback" id="copy-feedback-2">✓ コピーしました</span>
     </div>
   </div>
 </div>
@@ -388,6 +398,7 @@ parts.push(
 }
 }
 
+const splitAt = parts.length;
 // ── C: 衝動性/情緒不安定 ──
 if (C!= null) {
 if (gC === 'vhigh') {
@@ -541,7 +552,8 @@ parts.push(
 'ご自身の得意なことや強みを意識しながら、毎日を自然体で過ごしていけるとよいでしょう。'
 );
 }
-return parts.join('\n\n');
+const layout = (t) => t.split('──────────────\n').join('').replace(/でした。\n\n〇/g, 'でした。\n〇');
+return [layout(parts.slice(0, splitAt).join('\n\n')), layout(parts.slice(splitAt).join('\n\n'))];
 }
 
 function parseAndGenerate() {
@@ -555,23 +567,27 @@ function parseAndGenerate() {
   const sec = document.getElementById('findings-section');
   sec.style.display = 'block';
   sec.classList.add('fade-up');
-  document.getElementById('findings-area').value = generateFindings(scores);
+  document.getElementById('findings-section-2').style.display = 'block';
+  const findings = generateFindings(scores);
+  document.getElementById('findings-area-1').value = findings[0];
+  document.getElementById('findings-area-2').value = findings[1];
 
 }
 
 function clearAll() {
   document.getElementById('input-area').value = '';
   document.getElementById('findings-section').style.display = 'none';
+  document.getElementById('findings-section-2').style.display = 'none';
 }
 
-function copyFindings() {
-  const text = document.getElementById('findings-area').value;
+function copyFindings(n) {
+  const ta = document.getElementById('findings-area-' + n);
+  const text = ta.value;
   navigator.clipboard.writeText(text).then(() => {
-    const fb = document.getElementById('copy-feedback');
+    const fb = document.getElementById('copy-feedback-' + n);
     fb.classList.add('show');
     setTimeout(() => fb.classList.remove('show'), 2000);
   }).catch(() => {
-    const ta = document.getElementById('findings-area');
     ta.select();
     document.execCommand('copy');
   });
