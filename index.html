@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+<!-- This site is hosted on Netlify. Anyone can build and deploy a site
+     like this one for free: https://netlify.new/?utm_campaign=loops&utm_source=ai-legible&utm_medium=owned&utm_content=comment&utm_id=37f9b13e-ecd7-4278-b438-57fa65b13c41
+     Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAARS 所見ジェネレーター</title>
+  <meta name="description" content="CAARSの得点データを入力すると、所見文を自動生成するツールです。">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #ffffff;
+      --surface: rgba(0,0,0,0.03);
+      --surface-hover: rgba(0,0,0,0.06);
+      --border: rgba(0,0,0,0.12);
+      --accent: #5b4de0;
+      --accent-glow: rgba(91,77,224,0.2);
+      --accent2: #0d9e7a;
+      --text: #1a1a2e;
+      --text-muted: #5a5870;
+      --radius: 16px;
+      --shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans JP', 'Inter', sans-serif;
+      min-height: 100vh;
+      padding: 0 0 60px;
+      background-image:
+        radial-gradient(ellipse at 20% 10%, rgba(91,77,224,0.05) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 90%, rgba(13,158,122,0.04) 0%, transparent 50%);
+    }
+    header {
+      text-align: center;
+      padding: 52px 20px 36px;
+      position: relative;
+    }
+    header::after {
+      content: '';
+      display: block;
+      width: 120px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      margin: 24px auto 0;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent2);
+      background: rgba(91,229,197,0.1);
+      border: 1px solid rgba(91,229,197,0.25);
+      padding: 4px 14px;
+      border-radius: 100px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: clamp(24px, 4vw, 40px);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--accent);
+    }
+    .subtitle { margin-top: 10px; color: var(--text-muted); font-size: 14px; }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: rgba(255,255,255,0.14); }
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+    textarea {
+      width: 100%;
+      background: rgba(0,0,0,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'Noto Sans JP', monospace;
+      font-size: 13.5px;
+      line-height: 1.8;
+      padding: 16px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    #input-area   { min-height: 220px; }
+    #findings-area { min-height: 380px; }
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px 24px;
+      transition: all 0.18s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #9d6ff7);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(124,106,247,0.35);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(124,106,247,0.5); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-secondary {
+      background: var(--surface-hover);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); }
+    .btn-copy {
+      background: linear-gradient(135deg, #1f6f5c, var(--accent2));
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(91,229,197,0.25);
+    }
+    .btn-copy:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(91,229,197,0.4); }
+    .copy-feedback { font-size: 13px; color: var(--accent2); opacity: 0; transition: opacity 0.3s; }
+    .copy-feedback.show { opacity: 1; }
+    .section-divider { border: none; border-top: 1px solid var(--border); margin: 8px 0 20px; }
+    @media(max-width:600px){
+      .card { padding: 20px; }
+      .btn-row { flex-direction: column; }
+      button { width: 100%; justify-content: center; }
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(12px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.4s ease both; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="badge">心理検査ツール</div>
+  <h1>CAARS 所見ジェネレーター</h1>
+  <p class="subtitle">得点データをテキストで貼り付けると、所見文を自動で生成します</p>
+</header>
+
+<div class="container">
+  <div class="card">
+    <div class="card-label">📋 CAARS データを貼り付け</div>
+    <textarea id="input-area" placeholder="■ CAARS
+A 不注意/記憶の問題　　（t=61）平均を上回る
+B 多動性/落ち着きのなさ　（t=54）平均
+C 衡動性/情緒不安定　　（t=56）平均をやや上回る
+D 自己概念の問題　　　（t=70）平均をかなり上回る
+E DSM-IV 不注意型症状　（t=58）平均をやや上回る
+F DSM-IV 多動性-衝動性症状（t=48）平均
+G DSM-IV 総合ADHD症状　（t=58）平均をやや上回る
+H ADHD指数　　　　　（t=66）平均をかなり上回る"></textarea>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="parseAndGenerate()"><span>✦</span> 所見を生成する</button>
+      <button class="btn-secondary" onclick="clearAll()">クリア</button>
+    </div>
+  </div>
+
+  <div class="card" id="findings-section" style="display:none">
+    <div class="card-label">📝 所見（編集可能）</div>
+    <hr class="section-divider">
+    <textarea id="findings-area"></textarea>
+    <div class="btn-row">
+      <button class="btn-copy" onclick="copyFindings()"><span>📄</span> テキストをコピー</button>
+      <span class="copy-feedback" id="copy-feedback">✓ コピーしました</span>
+    </div>
+  </div>
+</div>
+
+<script>
+function parseScores(text) {
+  const scores = {};
+  // 改行なし・1行まとめ入力に対応: A〜H の手前で改行を挿入
+  const normalized = text.replace(/(?<=[^\n])([A-H][\s\u3000]+[^\s\u3000])/g, '\n$1');
+  for (const line of normalized.split('\n')) {
+    // 通常形式: A 不注意/記憶の問題（t=67）
+    const m = line.match(/^([A-H])[\s\u3000]+.+?[（(]t=(\d+)[）)]/);
+    if (m) { scores[m[1]] = parseInt(m[2], 10); continue; }
+    // コロン形式: A:不注意（t=67）
+    const m2 = line.match(/^([A-H])\s*[：:].+?[（(]t=(\d+)[）)]/);
+    if (m2) { scores[m2[1]] = parseInt(m2[2], 10); continue; }
+    // t値なし
+    const m3 = line.match(/^([A-H])[\s\u3000：:]+.+?[（(]t=[）)]/);
+    if (m3) scores[m3[1]] = null;
+  }
+  return scores;
+}
+
+// t得点4段階判定: vhigh=75以上, high=65以上, low=50〜64, vlow=49以下
+function gradeT(t) {
+  if (t == null) return null;
+  if (t >= 75) return 'vhigh';
+  if (t >= 65) return 'high';
+  if (t >= 50) return 'low';
+  return 'vlow';
+}
+
+function generateFindings(scores) {
+const { A, B, C, D, H} = scores;
+const parts = [];
+const gA = gradeT(A);
+const gB = gradeT(B);
+const gC = gradeT(C);
+const gD = gradeT(D);
+const aHigh = gA === 'vhigh' || gA === 'high';
+const bHigh = gB === 'vhigh' || gB === 'high';
+const cHigh = gC === 'vhigh' || gC === 'high';
+const dHigh = gD === 'vhigh' || gD === 'high';
+const anySig = aHigh || bHigh || cHigh || dHigh;
+
+// ── 冒頭 ──
+if (H!= null) {
+if (H >= 65) {
+parts.push(
+'【所見】CAARSのADHD指数はt=' + H + 'と平均を上回り、ADHD傾向がうかがえる結果となりました。\n' +
+'以下に各項目の特徴と、日常生活で取り入れられる工夫をお伝えします。'
+);
+} else if (anySig) {
+parts.push(
+'【所見】CAARSのADHD指数はt=' + H + 'と平均的な範囲に収まる結果となりました。\n' +
+'ただし、項目ごとに見ると、場面によっては注意・記憶・感情のコントロール面でやや特徴を感じることがあるかもしれません。以下にそれぞれの項目について説明します。'
+);
+} else {
+parts.push(
+'【所見】CAARSのADHD指数はt=' + H + 'と平均的な範囲に収まる結果となりました。\n' +
+'以下にそれぞれの項目について説明します。'
+);
+}
+}
+
+// ── A: 不注意/記憶の問題 ──
+if (A!= null) {
+if (gA === 'vhigh') {
+parts.push(
+'──────────────\n【不注意/記憶の問題】 特に高い結果でした。\n' +
+'覚えておく力や時間の感覚、注意を持続させる力の特性が関係していると考えられます。意欲や努力の問題ではありません。\n\n' +
+'〇困りごと\n' +
+'・集中を長く維持することや、物事を記憶にとどめておくことに日常的な困難を感じやすい\n' +
+'・やるべきことの途中で別のことへ意識が向いてしまうことがある\n' +
+'・会話や指示の内容をその場では理解できても、時間が経つと細部が抜け落ちてしまうことがある\n' +
+'・忘れ物・置き忘れ・締め切りの見落としが起こりやすい\n' +
+'・複数の作業を同時に抱える状況では負担がさらに増す\n\n' +
+'〇こんな場面で出やすい\n' +
+'・鍵や財布、スマホの置き場所が分からなくなり、探し物が多くなる\n' +
+'・約束の時間や締め切りをうっかり過ぎてしまう\n' +
+'・メールやメッセージの返信を後回しにして溜めてしまう\n' +
+'・書類の記入漏れや提出期限切れが重なる\n' +
+'・複数の作業を同時に抱えると、頭が止まってしまう\n\n' +
+'「頭だけで覚えようとしない」を基本方針に、仕組みで補うことが助けになります。\n\n' +
+'〇対策とアドバイス\n' +
+'・やることを全部書き出して優先順位に番号を振り、上から1つずつ取り組む\n' +
+'・やることリストを毎朝書き出して目につく場所に置く\n' +
+'・物の定位置を決める（貴重品は玄関のトレイなど1か所にまとめる）\n' +
+'・スマートフォンのリマインダーを、時間を分けて段階的に設定する\n' +
+'・大事な指示は文字で残してもらい、復唱して確認する\n' +
+'・作業を25分集中→5分休憩のサイクルで区切る'
+);
+} else if (gA === 'high') {
+parts.push(
+'──────────────\n【不注意/記憶の問題】 やや高めの結果でした。\n' +
+'覚えておく力や時間の感覚の特性が関係していると考えられます。意欲や努力の問題ではありません。\n\n' +
+'〇困りごと\n' +
+'・ケアレスミスや忘れ物が起こりやすい\n' +
+'・仕事や家事でやるべきことを途中で忘れてしまったり、物の置き場所がわからなくなる場面がある\n' +
+'・会話や説明を聞いている最中にふと他のことへ意識が向き、大事な情報を聞き逃してしまうことがある\n\n' +
+'〇こんな場面で出やすい\n' +
+'・鍵や財布、スマホの置き場所が分からなくなる\n' +
+'・約束や締め切りをうっかり過ぎてしまう\n' +
+'・指示を聞いた直後は分かっていても、細部が抜け落ちる\n' +
+'・複数の作業を同時に抱えると、頭が止まってしまう\n\n' +
+'〇対策とアドバイス\n' +
+'・やることは頭で覚えようとせず、全部書き出して優先順位に番号を振る\n' +
+'・「今日やること」をあらかじめ3つに絞って付箋やメモに書き出しておく\n' +
+'・貴重品の置き場所を1か所に決める\n' +
+'・リマインダーは時間を分けて段階的に設定する\n' +
+'・大事な話を聞くときにメモを取る習慣を持つ\n' +
+'・自分が集中しやすい時間帯を把握して、重要な作業をその時間に充てる\n' +
+'・作業にかかる時間は、思った時間より多めに見積もる'
+);
+} else if (gA === 'low') {
+parts.push(
+'──────────────\n【不注意/記憶の問題】 平均的な範囲でした。\n\n' +
+'〇強み・特徴\n' +
+'・日常的な注意や記憶の面では大きな困難が生じにくい\n' +
+'・やるべきことを覚えておいたり集中を維持したりすることが比較的スムーズに行えている\n\n' +
+'〇活かせる場面\n' +
+'・計画的に物事を進める場面'
+);
+} else {
+parts.push(
+'──────────────\n【不注意/記憶の問題】 平均を大きく下回る結果でした。\n\n' +
+'〇強み・特徴\n' +
+'・注意を持続させる力や、物事を記憶にとどめておく力が非常に高い\n' +
+'・やるべきことを的確に把握し、細部まで丁寧に対応できる\n\n' +
+'〇活かせる場面\n' +
+'・正確さや信頼性が求められる場面'
+);
+}
+}
+
+// ── B: 多動性/落ち着きのなさ ──
+if (B!= null) {
+if (gB === 'vhigh') {
+parts.push(
+'──────────────\n【多動性/落ち着きのなさ】 特に高い結果でした。\n' +
+'体を動かしたい感覚の強さや、じっとし続けることへの負担の感じやすさが関係していると考えられます。\n\n' +
+'〇困りごと\n' +
+'・長時間じっとしていることや、ひとつの作業に落ち着いて取り組み続けることに強い困難を感じやすい\n' +
+'・頭の中で考えごとが絶えず続き、内側から強いそわそわ感が生じやすい\n' +
+'・長時間同じ作業に集中し続けることに著しい困難を感じる場面がある\n\n' +
+'〇こんな場面で出やすい\n' +
+'・会議や授業など静かにすべき場面で席を立ってしまう\n' +
+'・貧乏揺すりや手足を動かすことが止まらない\n' +
+'・食事中、何度も席を立ってしまう\n' +
+'・布団に入っても体がそわそわして寝付けない\n' +
+'・順番待ちが苦手で列を離れてしまう\n\n' +
+'〇強み・特徴\n' +
+'・豊かなエネルギーや行動力があり、推進力や発想力の源になっている\n\n' +
+'〇対策とアドバイス\n' +
+'・身体を動かす機会を積極的に作る\n' +
+'・作業を20〜30分ごとに区切ってストレッチや歩行を挟む\n' +
+'・ノイズキャンセリングイヤホンや仕切りで刺激を減らす'
+);
+} else if (gB === 'high') {
+parts.push(
+'──────────────\n【多動性/落ち着きのなさ】 やや高めの結果でした。\n' +
+'体を動かしたい感覚の強さや、じっとし続けることへの負担の感じやすさが関係していると考えられます。\n\n' +
+'〇困りごと\n' +
+'・長時間じっとしていることが難しく感じる場面がある\n' +
+'・落ち着いてひとつの作業を続けることが難しい場面がある\n' +
+'・頭の中で考えごとが絶えず続き、内側からそわそわした感覚が生じやすい\n\n' +
+'〇こんな場面で出やすい\n' +
+'・会議中に貧乏揺すりやペンを回すことが止まらない\n' +
+'・食事中や待ち時間に席を立ったり歩き回ったりしてしまう\n' +
+'・布団に入ってもそわそわして寝付きにくい\n\n' +
+'〇強み・特徴\n' +
+'・豊かなエネルギーや行動力があり、推進力や発想力の源になっている\n\n' +
+'〇対策とアドバイス\n' +
+'・作業の合間に2〜3分のストレッチやウォーキングを挟む\n' +
+'・集中と休憩の時間帯をあらかじめ決めておく'
+);
+} else if (gB === 'low') {
+parts.push(
+'──────────────\n【多動性/落ち着きのなさ】 平均的な範囲でした。\n\n' +
+'〇強み・特徴\n' +
+'・身体的に落ち着いて行動できている\n' +
+'・一つの作業を続けることに大きな困難が生じにくい\n\n' +
+'〇活かせる場面\n' +
+'・集中を要する場面\n' +
+'・長時間の取り組みが求められる場面'
+);
+} else {
+parts.push(
+'──────────────\n【多動性/落ち着きのなさ】 平均を大きく下回る結果でした。\n\n' +
+'〇強み・特徴\n' +
+'・身体的な落ち着きが非常に高い\n' +
+'・長時間ひとつのことに集中して取り組める力が際立っている\n\n' +
+'〇活かせる場面\n' +
+'・集中力や粘り強さが求められる場面'
+);
+}
+}
+
+// ── C: 衝動性/情緒不安定 ──
+if (C!= null) {
+if (gC === 'vhigh') {
+parts.push(
+'──────────────\n【衝動性/情緒不安定】 特に高い結果でした。\n' +
+'思いつきを抑えるブレーキの弱さや、感情の波の大きさの特性が関係していると考えられます。\n\n' +
+'〇困りごと\n' +
+'・思いついたことをすぐに口に出したり行動に移してしまうことが多く、後になって強く後悔する場面が繰り返されることがある\n' +
+'・感情の変化が非常に大きく、気分の波に振り回されやすい\n\n' +
+'〇こんな場面で出やすい\n' +
+'・他人の会話に割り込んで話し始めてしまう\n' +
+'・質問を最後まで聞かずに答えてしまう\n' +
+'・予算を考えずにネット通販などで衝動買いをしてしまう\n' +
+'・カッとなって大声を出したり、物に当たってしまう\n' +
+'・その場の勢いで大きな決断を口にしてしまう\n\n' +
+'〇対策とアドバイス\n' +
+'・「発言・行動する前に5秒待つ」を意識する\n' +
+'・感情が大きく動いたときはその場を離れてクールダウンする時間を作る\n' +
+'・毎日の気持ちの動きを記録して自分のパターンを把握する\n' +
+'・欲しくなった物はその場では買わず、時間を置いてから決める'
+);
+} else if (gC === 'high') {
+parts.push(
+'──────────────\n【衝動性/情緒不安定】 やや高めの結果でした。\n' +
+'思いつきを抑えるブレーキの弱さや、感情の波の大きさの特性が関係していると考えられます。\n\n' +
+'〇困りごと\n' +
+'・思いついたことをすぐ口に出したり行動に移してしまいやすく、後になって「もう少し慎重にすればよかった」と感じることがある\n' +
+'・感情の変化が比較的大きく、不満や困惑が生じたときにイライラが強くなりやすい\n\n' +
+'〇こんな場面で出やすい\n' +
+'・他人の会話に割り込んで話し始めてしまう\n' +
+'・質問を最後まで聞かずに答えてしまう\n' +
+'・ネット通販などでつい衝動買いをしてしまう\n' +
+'・言わなくてよい本音をそのまま口にしてしまう\n\n' +
+'〇対策とアドバイス\n' +
+'・返信や返事は「一呼吸置いてから」を意識する\n' +
+'・気持ちが大きく揺れたときはいったんその場を離れて外の空気を吸う\n' +
+'・欲しくなった物はその場では買わず、時間を置いてから決める'
+);
+} else if (gC === 'low') {
+let cText =
+'──────────────\n【衝動性/情緒不安定】 平均的な範囲でした。\n\n' +
+'〇強み・特徴\n' +
+'・思いつきで即座に行動してしまうような傾向は目立っていない\n' +
+'・感情のコントロールも比較的安定している\n\n' +
+'〇活かせる場面\n' +
+'・冷静な判断が求められる場面\n' +
+'・丁寧なコミュニケーションが求められる場面';
+if (gB === 'low') {
+cText += '\n\n〇ちょっとした工夫\n' +
+'・疲れやプレッシャーが重なると気持ちが焦りやすくなることもあるため、疲れを感じる前にこまめに休憩を取る';
+}
+parts.push(cText);
+} else {
+parts.push(
+'──────────────\n【衝動性/情緒不安定】 平均を大きく下回る結果でした。\n\n' +
+'〇強み・特徴\n' +
+'・感情のコントロール力が非常に高い\n' +
+'・衝動的な言動はほとんど見られない\n\n' +
+'〇活かせる場面\n' +
+'・判断力や対人関係の安定が求められる場面'
+);
+}
+}
+
+// ── D: 自己概念の問題 ──
+if (D!= null) {
+if (gD === 'vhigh') {
+parts.push(
+'──────────────\n【自己概念の問題】 特に高い結果でした。\n' +
+'これまでの失敗体験の積み重ねが、自己評価に影響していると考えられます。\n\n' +
+'〇困りごと\n' +
+'・自分の行動や能力に対して非常に厳しく評価してしまいやすい\n' +
+'・「自分はうまくできない」「他の人より劣っているのではないか」という感覚を強く持ちやすい\n' +
+'・些細なミスが心に深く引っかかりやすい\n' +
+'・新しいことへの挑戦を前に「どうせうまくいかない」という気持ちが強くブレーキになることがある\n\n' +
+'「ミスは特性のせいであり、自分の価値とは別」という視点を持てると、少し楽になることがあります。\n\n' +
+'〇対策とアドバイス\n' +
+'・就寝前に「今日できたこと」を1つだけ書き出す\n' +
+'・ミスをしたときに「次はこうしよう」と置き換える練習を少しずつ取り入れる\n' +
+'・信頼できる人に話を聞いてもらいながら、自己評価を少しずつ建て直していく'
+);
+} else if (gD === 'high') {
+parts.push(
+'──────────────\n【自己概念の問題】 やや高めの結果でした。\n' +
+'これまでの失敗体験の積み重ねが、自己評価に影響していると考えられます。\n\n' +
+'〇困りごと\n' +
+'・自分に自信を持ちにくく、失敗を必要以上に気にしてしまうことがある\n' +
+'・周囲と比べて落ち込んでしまったり、何かを始める前から「うまくいかないかも」という気持ちが先立ちやすい\n\n' +
+'〇対策とアドバイス\n' +
+'・小さな成功体験を意識的に積み重ねる\n' +
+'・「今日うまくできたこと」を寝る前にひとつ思い浮かべる\n' +
+'・やり遂げたことに○をつけるチェックリストで達成感を可視化する'
+);
+} else if (gD === 'low') {
+parts.push(
+'──────────────\n【自己概念の問題】 平均的な範囲でした。\n\n' +
+'〇強み・特徴\n' +
+'・自分自身への評価は比較的安定している\n' +
+'・自信を持って物事に取り組める場面が多い\n\n' +
+'〇活かせる場面\n' +
+'・新しいことへの挑戦や継続的な努力を支える土台として'
+);
+} else {
+parts.push(
+'──────────────\n【自己概念の問題】 平均を大きく下回る結果でした。\n\n' +
+'〇強み・特徴\n' +
+'・自分の力や可能性を肯定的に捉えることができている\n' +
+'・高い自己効力感が備わっている\n\n' +
+'〇活かせる場面\n' +
+'・困難な場面でも粘り強く取り組む場面\n' +
+'・新しいことに積極的に挑戦する場面'
+);
+}
+}
+
+// ── 締め ──
+const H_sig = H!= null && H >= 65;
+if (H_sig && anySig) {
+let tips = '';
+if (aHigh && (bHigh || cHigh) && dHigh) {
+tips = '注意・記憶・感情・自己評価のすべての面に特性が現れています。一度にすべてを変えようとせず、まず「外に書き出す」ことから始めてみてください。「今日の3つのやること」を朝に決める、「今日できたこと」を夜に1つ書き留める、感情が揺れたら一呼吸置いてから行動するという3つのルーティンが、特に助けになりやすいです。';
+} else if (aHigh && (bHigh || cHigh)) {
+tips = '注意・集中と感情・行動のコントロールの両面に特性が現れています。付箋やホワイトボードに今日やることを書いて目につく場所に貼る、作業を30分ごとに区切って休憩を挟む、衝動的な発言・行動を防ぐために「少し待ってから返事をする」を意識するといった工夫の組み合わせが、日常の安定につながっていきます。';
+} else if (aHigh && dHigh) {
+tips = '注意・記憶の特性に加え、自己評価の低さが重なっています。メモやリマインダーで仕組み的にミスを減らしながら、「今日ひとつできたこと」を毎日記録して自信を少しずつ積み上げていくことが助けになります。';
+} else if ((bHigh || cHigh) && dHigh) {
+tips = '感情の波や衝動性と自己評価の低さが組み合わさっています。判断・発言前に一呼吸置く習慣を持てると気持ちが落ち着きやすくなります。うまくいかなかったとき自分を責める代わりに「次はどうすればよかったか」を短く書き残すことが、自己評価を少しずつ建設的な方向へ向けることにつながります。';
+} else if (aHigh) {
+tips = '特に注意・記憶の面での工夫が助けになります。やることリスト・スマートフォンのリマインダー・物の定位置づくりを取り入れることで、タスクを1日3つまでに絞る習慣が毎日の負担を和らげてくれます。';
+} else if (bHigh || cHigh) {
+tips = '特に感情・行動のコントロール面での工夫が助けになります。体を動かす機会を1日に複数回取り入れることや、感情が高ぶったときの「クールダウンの儀式」（深呼吸・水を飲む・少し歩くなど）を決めておくことが、感情に振り回されにくくなる助けになります。';
+} else if (dHigh) {
+tips = '特に自己評価の面での工夫が助けになります。毎日の終わりに「今日できたこと」をひとつ書き留めたり、自分への言葉を「友達に話しかけるような言葉」に置き換えてみたりすることが、自己評価を少しずつ安定させることにつながります。';
+} else {
+tips = 'やるべきことをメモや付箋で書き出す、スマートフォンのリマインダーを積極的に使う、1日のタスクを朝に3つだけ決める、気持ちが落ち着かないときに深呼吸や軽いストレッチを挟む、今日一日の「できたこと」を就寝前に振り返るといった小さな習慣が、日常の安定につながっていきます。';
+}
+parts.push(
+'今回の結果は、注意や記憶の特性、そして感情・行動のコントロール面に特徴的なパターンが現れていることを示しています。' +
+'こうした特性は意欲や努力の問題ではなく、生まれ持った脳の情報処理の特徴によるものです。\n' +
+tips + '\n' +
+'ご自身の特性を理解し、それに合った環境や工夫を取り入れることで、日常生活が少しずつ過ごしやすくなっていきます。'
+);
+} else if (anySig) {
+parts.push(
+'今回の結果には、場面によって注意・記憶・自己評価などの面でやや特徴的なパターンが示されています。' +
+'メモやリマインダーを日常的に活用する、疲れを感じる前にこまめに休憩を取る、' +
+'感情が揺れたときに少しだけ間を置いてから行動するといった工夫を取り入れてみてください。\n' +
+'ご自身の特性を理解し、それに合った環境や工夫を取り入れることで、日常生活が少しずつ過ごしやすくなっていきます。'
+);
+} else {
+parts.push(
+'今回の検査では、各項目がおおむね平均的な範囲に収まっています。' +
+'注意・記憶・感情コントロール・自己評価のいずれも安定した状態にあると考えられます。' +
+'ご自身の得意なことや強みを意識しながら、毎日を自然体で過ごしていけるとよいでしょう。'
+);
+}
+return parts.join('\n\n');
+}
+
+function parseAndGenerate() {
+  const raw = document.getElementById('input-area').value.trim();
+  if (!raw) { alert('データを入力してください。'); return; }
+  const scores = parseScores(raw);
+  if (Object.keys(scores).length === 0) {
+    alert('スコアを読み取れませんでした。形式を確認してください。\n例: A 不注意/記憶の問題（t=64）平均を上回る');
+    return;
+  }
+  const sec = document.getElementById('findings-section');
+  sec.style.display = 'block';
+  sec.classList.add('fade-up');
+  document.getElementById('findings-area').value = generateFindings(scores);
+
+}
+
+function clearAll() {
+  document.getElementById('input-area').value = '';
+  document.getElementById('findings-section').style.display = 'none';
+}
+
+function copyFindings() {
+  const text = document.getElementById('findings-area').value;
+  navigator.clipboard.writeText(text).then(() => {
+    const fb = document.getElementById('copy-feedback');
+    fb.classList.add('show');
+    setTimeout(() => fb.classList.remove('show'), 2000);
+  }).catch(() => {
+    const ta = document.getElementById('findings-area');
+    ta.select();
+    document.execCommand('copy');
+  });
+}
+</script>
+</body>
+</html>
