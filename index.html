@@ -107,7 +107,7 @@
       box-shadow: 0 0 0 3px var(--accent-glow);
     }
     #input-area   { min-height: 220px; }
-    #findings-area-1, #findings-area-2 { min-height: 240px; }
+    #findings-area { min-height: 480px; }
     .btn-row {
       display: flex;
       gap: 12px;
@@ -188,22 +188,12 @@ H ADHD指数　　　　　（t=66）平均をかなり上回る"></textarea>
   </div>
 
   <div class="card" id="findings-section" style="display:none">
-    <div class="card-label">📝 所見・前半（編集可能）</div>
+    <div class="card-label">📝 所見全文（編集可能）</div>
     <hr class="section-divider">
-    <textarea id="findings-area-1"></textarea>
+    <textarea id="findings-area"></textarea>
     <div class="btn-row">
-      <button class="btn-copy" onclick="copyFindings(1)"><span>📄</span> 前半をコピー</button>
-      <span class="copy-feedback" id="copy-feedback-1">✓ コピーしました</span>
-    </div>
-  </div>
-
-  <div class="card" id="findings-section-2" style="display:none">
-    <div class="card-label">📝 所見・後半（編集可能）</div>
-    <hr class="section-divider">
-    <textarea id="findings-area-2"></textarea>
-    <div class="btn-row">
-      <button class="btn-copy" onclick="copyFindings(2)"><span>📄</span> 後半をコピー</button>
-      <span class="copy-feedback" id="copy-feedback-2">✓ コピーしました</span>
+      <button class="btn-copy" onclick="copyFindings()"><span>📄</span> 所見全文をコピー</button>
+      <span class="copy-feedback" id="copy-feedback">✓ 全文をコピーしました</span>
     </div>
   </div>
 </div>
@@ -398,7 +388,6 @@ parts.push(
 }
 }
 
-const splitAt = parts.length;
 // ── C: 衝動性/情緒不安定 ──
 if (C!= null) {
 if (gC === 'vhigh') {
@@ -553,7 +542,7 @@ parts.push(
 );
 }
 const layout = (t) => t.split('──────────────\n').join('').replace(/でした。\n\n〇/g, 'でした。\n〇');
-return [layout(parts.slice(0, splitAt).join('\n\n')), layout(parts.slice(splitAt).join('\n\n'))];
+return layout(parts.join('\n\n'));
 }
 
 function parseAndGenerate() {
@@ -567,30 +556,47 @@ function parseAndGenerate() {
   const sec = document.getElementById('findings-section');
   sec.style.display = 'block';
   sec.classList.add('fade-up');
-  document.getElementById('findings-section-2').style.display = 'block';
   const findings = generateFindings(scores);
-  document.getElementById('findings-area-1').value = findings[0];
-  document.getElementById('findings-area-2').value = findings[1];
+  document.getElementById('findings-area').value = findings;
 
 }
 
 function clearAll() {
   document.getElementById('input-area').value = '';
+  document.getElementById('findings-area').value = '';
   document.getElementById('findings-section').style.display = 'none';
-  document.getElementById('findings-section-2').style.display = 'none';
 }
 
-function copyFindings(n) {
-  const ta = document.getElementById('findings-area-' + n);
+function copyFindings() {
+  const ta = document.getElementById('findings-area');
   const text = ta.value;
-  navigator.clipboard.writeText(text).then(() => {
-    const fb = document.getElementById('copy-feedback-' + n);
+  const fb = document.getElementById('copy-feedback');
+
+  if (!text) {
+    alert('コピーする所見がありません。');
+    return;
+  }
+
+  const showFeedback = () => {
     fb.classList.add('show');
     setTimeout(() => fb.classList.remove('show'), 2000);
-  }).catch(() => {
+  };
+
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(showFeedback).catch(() => {
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      const copied = document.execCommand('copy');
+      if (copied) showFeedback();
+      else alert('コピーできませんでした。所見欄を選択してコピーしてください。');
+    });
+  } else {
     ta.select();
-    document.execCommand('copy');
-  });
+    ta.setSelectionRange(0, ta.value.length);
+    const copied = document.execCommand('copy');
+    if (copied) showFeedback();
+    else alert('コピーできませんでした。所見欄を選択してコピーしてください。');
+  }
 }
 </script>
 </body>
